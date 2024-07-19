@@ -1,5 +1,6 @@
-dodpclient_v1 2024-07-19 16:10:40,837 DEBUG Login call with motorina@ia-group.ru:23610
-dodpclient_v1 2024-07-19 16:10:40,919 DEBUG Login successful
-dodpclient_v1 2024-07-19 16:10:40,919 DEBUG Calling __get_service_attributes
-dodpclient_v1 2024-07-19 16:10:41,013 DEBUG Service attributes are fetched successfully
-dodpclient_v1 2024-07-19 16:10:41,013 DEBUG Calling __set_reading_system_attributes
+dodpclient_v1 2024-07-19 17:07:05,158 DEBUG Calling login with motorina@ia-group.ru:23610
+dodpclient_v1 2024-07-19 17:07:05,283 DEBUG Login successful
+dodpclient_v1 2024-07-19 17:07:05,283 DEBUG Calling __get_service_attributes
+dodpclient_v1 2024-07-19 17:07:05,377 DEBUG Service attributes are fetched successfully
+dodpclient_v1 2024-07-19 17:07:05,377 DEBUG Calling __set_reading_system_attributes
+dodpclient_v1 2024-07-19 17:07:05,423 DEBUG Calling logoff

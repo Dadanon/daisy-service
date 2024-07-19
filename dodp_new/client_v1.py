@@ -29,22 +29,21 @@ class DODPClientV1(DODPClient):
         self._headers.update({'SOAPAction': '/setReadingSystemAttributes'})
         response_data = self._send(SETRSA)
         if response_data is None:
-            print('aa')
             return False
         result_match = re.search(r'<ns1:setReadingSystemAttributesResult>(.*?)<', response_data)
         if not result_match:
             return False
-        result = result_match.group(1)
-        return result == 'true'
+        return result_match.group(1) == 'true'
 
     def login(self, username: str, password: str) -> bool:
         """
         1. Логинимся
-        2. В случае успеха получаем сервисные атрибуты с сервера
-        3. В случае успеха устанавливаем их как параметр класса
-        4.
+        2. В случае успеха получаем список возможностей сервера
+        3. В случае успеха устанавливаем его в параметры класса
+        4. Отправляем список возможностей устройства на сервер
+        5. Возвращаем True в случае успеха
         """
-        self._logger.debug(f'Login call with {username}:{password}')
+        self._logger.debug(f'Calling login with {username}:{password}')
         self._headers.update({'SOAPAction': '/logOn'})
         body = LOGON % (username, password)
         response_data = self._send(body)

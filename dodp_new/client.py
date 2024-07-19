@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Optional
 
 import requests
@@ -7,6 +8,7 @@ from http import HTTPStatus
 from .general import DODPVersion, BASE_HEADERS, CLIENT_TIMEOUT
 from .exceptions import *
 from .messages import method_not_override
+from .request_body import LOGOFF
 
 
 class DODPClient:
@@ -44,7 +46,15 @@ class DODPClient:
         """
         Выйти из аккаунта на сервере электронных библиотек
         """
-        ...
+        self._logger.debug('Calling logoff')
+        self._headers.update({'SOAPAction': '/logOff'})
+        response_data = self._send(LOGOFF)
+        if response_data is None:
+            return False
+        result_match = re.search(r'<ns1:logOffResult>(.*?)<', response_data, re.DOTALL)
+        if result_match is None:
+            return False
+        return result_match.group(1) == 'true'
 
     def _send(self, body: str) -> Optional[str]:
         """

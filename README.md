@@ -15,7 +15,6 @@
 ## Публичные методы:
 ### 1. Войти в систему
 ```
-def login(username: str, password: str)
+def login(username: str, password: str) -> bool
 ```
-
 ### 2. 
