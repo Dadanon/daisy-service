@@ -1,20 +1,21 @@
 import logging
 import re
-from typing import Optional
+from typing import Optional, Self, List, Tuple
 
 import requests
 from logging import Logger
 from http import HTTPStatus
-from .general import DODPVersion, BASE_HEADERS, CLIENT_TIMEOUT
+from .general import DODPVersion, BASE_HEADERS, CLIENT_TIMEOUT, BookList, BookListed, BookContent
 from .exceptions import *
 from .messages import method_not_override
-from .request_body import LOGOFF
+from .request_body import *
 
 
 class DODPClient:
     _headers: dict  # Заголовки, используемые в теле запроса
     _version: DODPVersion  # Версия DODP
     _url: str  # Адрес сервера электронных библиотек
+    _search_id: Optional[str]  # Идентификатор для поиска
     _logger: Logger  # Сборщик данных об ошибках
     # Список важных параметров сервера
     _supportsServerSideBack: bool
@@ -23,6 +24,7 @@ class DODPClient:
     def __init__(self, url: str):
         self._headers = BASE_HEADERS
         self._url = url
+        self._search_id = None
         # Logger settings
         logger_name = f'dodpclient_{self._version}'
         self._logger = Logger(logger_name, logging.DEBUG)
@@ -33,6 +35,14 @@ class DODPClient:
         # Установка важных параметров сервера по умолчанию
         self._supportsServerSideBack = False
         self._supportsSearch = False
+
+    @property
+    def version(self):
+        return self._version
+
+    def set_search_id(self, search_id: str):
+        if not self._search_id:
+            self._search_id = search_id
 
     def login(self, username: str, password: str):
         """
@@ -48,13 +58,15 @@ class DODPClient:
         """
         self._logger.debug('Calling logoff')
         self._headers.update({'SOAPAction': '/logOff'})
-        response_data = self._send(LOGOFF)
+        response_data = self._send(LOGOFF_BODY)
         if response_data is None:
+            self._logger.error('Null response on calling logoff')
             return False
-        result_match = re.search(r'<ns1:logOffResult>(.*?)<', response_data, re.DOTALL)
+        result_match = re.search(r'<ns1:logOffResult>true<', response_data, re.DOTALL)
         if result_match is None:
+            self._logger.error('logOffResult is not found in server response or is False')
             return False
-        return result_match.group(1) == 'true'
+        return True
 
     def _send(self, body: str) -> Optional[str]:
         """
@@ -76,3 +88,82 @@ class DODPClient:
             return response.text
         except requests.exceptions.Timeout:
             self._logger.error('Automatic timeout interval expired')
+        except requests.exceptions.SSLError:
+            self._logger.error('Automatic SSL error')
+
+    def get_search_id(self) -> Optional[str]:
+        """
+        Метод, необходимый для получения нужного id при запросах
+        """
+        self._logger.debug('Calling _search')
+        self._headers.update({'SOAPAction': '/userResponses'})
+        response_data = self._send(SEARCH_BODY)
+        if response_data is None:
+            self._logger.error('Null response on calling search')
+            return None
+        search_id_match = re.search(r'ns1:inputQuestion id="(.*?)">', response_data, re.DOTALL)
+        if search_id_match is None:
+            self._logger.error('inputQuestion id is not found in server response')
+            return None
+        return search_id_match.group(1)
+
+    def _get_content_list_id(self, text: str) -> Optional[str]:
+        """
+        Получить идентификатор контент листа
+        :param search_id: идентификатор поиска, уникальный для каждой электронной библиотеки
+        :param text: текст, являющийся частью названия книги, автора
+        :return: content list id as string
+        """
+        self._logger.debug('Calling _get_content_list_id')
+        content_list_id_body = GET_CONTENT_LIST_ID_BODY % (self._search_id, text)
+        response_data = self._send(content_list_id_body)
+        if response_data is None:
+            self._logger.error('Null response on calling _get_content_list_id')
+            return None
+        content_list_ref_match = re.search(r'<contentListRef>(.*?)</contentListRef>', response_data, re.DOTALL)
+        if content_list_ref_match is None:
+            self._logger.error('contentListRef is not found in server response')
+            return None
+        return content_list_ref_match.group(1)
+
+    def _get_book_list(self, content_list_id: str, first_item: int = 0, last_item: int = -1) -> BookList:
+        """
+        Получить список книг (срез списка от first_item до last_item)
+        :param content_list_id: идентификатор контент листа
+        :param first_item: индекс первого элемента в подсписке
+        :param last_item: индекс последнего элемента в подсписке
+        :return: список книг с общим их числом
+        """
+        book_list = BookList(total=0)
+        self._logger.debug('Calling _get_book_list')
+        self._headers.update({'SOAPAction': '/getContentList'})
+        books_list_body = GET_BOOKS_LIST_BODY % (content_list_id, first_item, last_item)
+        response_data = self._send(books_list_body)
+        if response_data is None:
+            self._logger.error('Null response on calling _get_books_list')
+            return book_list
+        total_match = re.search(r'<ns1:contentList totalItems="(.*?)"', response_data, re.DOTALL)
+        if total_match is None:
+            self._logger.error('No total count found in server response')
+        else:
+            book_list.total = int(total_match.group(1))
+        content_items_iter = re.finditer(r'<ns1:contentItem id="(.*?)">.*?<ns1:text>(.*?)<', response_data, re.DOTALL)
+        for content_item in content_items_iter:
+            book_listed = BookListed(id=content_item.group(1), name=content_item.group(2))
+            book_list.books.append(book_listed)
+        return book_list
+
+    # INFO: public methods block --------------------------------------------------------------------------------------
+    def get_book_list(self, text: str, first_item: int = 0, last_item: int = -1) -> BookList:
+        self._logger.debug(f'Public method calling: get_book_list with text: {text}')
+        content_list_id = self._get_content_list_id(text)
+        if content_list_id is None:
+            return []
+        book_list = self._get_book_list(content_list_id, first_item, last_item)
+        return book_list
+
+    def get_book_content(self, book_id: str):
+        self._logger.error(method_not_override('get_book_content'))
+        raise NotOverrideError('get_book_content')
+
+    # INFO: end block -------------------------------------------------------------------------------------------------

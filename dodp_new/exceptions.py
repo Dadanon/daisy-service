@@ -1,6 +1,11 @@
 from .messages import method_not_override
 
 
+class GetClientError(Exception):
+    def __str__(self):
+        print('Ошибка авторизации')
+
+
 class NotOverrideError(Exception):
     method_name: str
 

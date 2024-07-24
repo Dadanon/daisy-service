@@ -1,3 +1,6 @@
+from .general import LOGIN_DICT
+
+
 LOGON = """<?xml version="1.0" encoding="UTF-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
     <SOAP-ENV:Body xmlns="http://www.daisy.org/ns/daisy-online/">
@@ -21,14 +24,14 @@ GETSA = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 # INFO: список возможностей плеера для отправки на сервер (set reading system attributes)
-SETRSA = """<?xml version="1.0" encoding="UTF-8"?>
+SETRSA = f"""<?xml version="1.0" encoding="UTF-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
     <SOAP-ENV:Body xmlns="http://www.daisy.org/ns/daisy-online/">
         <setReadingSystemAttributes>
             <readingSystemAttributes>
-                <manufacturer>Антон Свистов (a.svistov@ia-group.ru)</manufacturer>
-                <model>daisy_go</model>
-                <version>2023.08.22</version>
+                <manufacturer>{LOGIN_DICT['manufacturer']}</manufacturer>
+                <model>{LOGIN_DICT['model_go']}</model>
+                <version>{LOGIN_DICT['version']}</version>
                 <config>
                     <supportsMultipleSelections>false</supportsMultipleSelections>
                     <preferredUILanguage>ru-RU</preferredUILanguage>
@@ -47,6 +50,17 @@ SETRSA = """<?xml version="1.0" encoding="UTF-8"?>
                 </config>
             </readingSystemAttributes>
         </setReadingSystemAttributes>
+    </SOAP-ENV:Body>
+</SOAP-ENV:Envelope>
+"""
+
+
+GETCR = """<?xml version="1.0" encoding="UTF-8"?>
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
+    <SOAP-ENV:Body xmlns="http://www.daisy.org/ns/daisy-online/">
+        <getContentResources>
+            <contentID>%s</contentID>
+        </getContentResources>
     </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>
 """

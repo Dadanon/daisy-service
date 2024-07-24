@@ -1,14 +1,18 @@
-LOGON = """<?xml version="1.0" encoding="UTF-8"?>
+from .general import LOGIN_DICT
+
+
+def LOGON_v2(username: str, password: str):
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
     <SOAP-ENV:Body xmlns="http://www.daisy.org/ns/daisy-online/">
         <logOn>
-            <username>%s</username>
-            <password>%s</password>
+            <username>{username}</username>
+            <password>{password}</password>
             <readingSystemAttributes>
-                <manufacturer>Антон Свистов (a.svistov@ia-group.ru)</manufacturer>
-                <model>daisy_py</model>
-                <serialNumber>040923</serialNumber>
-                <version>2023.09.04</version>
+                <manufacturer>{LOGIN_DICT['manufacturer']}</manufacturer>
+                <model>{LOGIN_DICT['model_py']}</model>
+                <serialNumber>{LOGIN_DICT['serial']}</serialNumber>
+                <version>{LOGIN_DICT['version']}</version>
                 <config>
                     <accessConfig>STREAM_ONLY</accessConfig>
                     <supportsMultipleSelections>true</supportsMultipleSelections>

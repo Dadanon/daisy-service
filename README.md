@@ -12,9 +12,108 @@
 - загрузка выбранных книг из электронной полки и библиотечной базы в тифлофлешплеер (специальное устройство для слабовидящих)
 - онлайн прослушивание выбранных книг без их загрузки в тифлофлешплеер с сохранением позиции воспроизведения каждой книги
 
+Для выбора книг путем текстового поиска (версия 1.0) необходимо выполнить нижеуказанные функции в корректном порядке:
+- перейти в меню поиска (userResponse questionID="search")
+- получить полезный id для поиска (в случае av3715 - "searchrequest")
+- сделать запрос с полезным id и текстом (questionId="searchrequest" value="book_name")
+- полученный id (содержимое contentListRef) использовать в методе getContentList
+- из полученного ответа берем общее число записей (ns1:contentList totalItems=), находим все
+contentItem, выбираем из них id и текст для показа в списке, возвращаем список в стороннее приложение (API метод)
+- у понравившегося item - вызываем getContentResources для данного id и получаем
+список ссылок на lgk и lkf файлы, возвращаем эти пути списком в стороннее приложение (API метод)
+
+Детализация любого публичного метода находится в файле dodpclient_<version>.log
 ## Публичные методы:
 ### 1. Войти в систему
 ```
 def login(username: str, password: str) -> bool
 ```
-### 2. 
+Возвращает True, если удалось успешно войти в систему со своим аккаунтом
+и выполнить все промежуточные шаги (getServiceAttributes, setReadingSystemAttributes),
+иначе False
+### 2. Выйти из системы
+```
+def logoff() -> bool
+```
+Возвращает True в случае удачного выхода из аккаунта, иначе False
+### 3. Получить список книг по тексту
+```
+def get_book_list(text: str, first_item: int = 0, last_item: int = -1) -> BookList
+```
+```
+class BookList:
+    total: int  # Общее количество книг, не равно len(books) при указании first_item или last_item
+    books: List[BookListed]
+        
+class BookListed:
+    id: str
+    name: str
+```
+Параметры:
+- text: str - текст, который может быть частью названия книги или автора
+- first_item: int - индекс первой записи, по умолчанию 0 (с начала списка)
+- last_item: int - индекс последней записи, по умолчанию -1 (до конца списка)
+
+Пример: возвращенный список целиком - [1, 2, 3, 4, 5] (при задании first_item
+и last_item по умолчанию). Если first_item = 2, last_item = 4 - вернется список
+[3, 5].  
+Также у BookList есть метод to_dict(), который возвращает объект класса в формате json. Пример:
+```
+{
+    'total': 2, 
+    'books': [
+        {
+            'id': 1, 
+            'name': 'first_book'
+        }, 
+        {
+            'id': 2, 
+            'name': 'second_book'
+        }
+    ]
+}
+```
+### 4. Получить содержимое книги
+```
+def get_book_content(book_id: str) -> Optional[BookContent]:
+```
+```
+class BookContent:
+    lgk_content: Optional[LGKContent]
+    lkf_content: List[LKFContent]
+    
+class LGKContent(UrlContent):
+    pass
+
+
+class LKFContent(UrlContent):
+    pass
+    
+class UrlContent:
+    uri: str
+    size: float  # Размер файла по ссылке в байтах
+```
+Параметры:
+- book_id: str - идентификатор книги  
+
+Получить содержимое книги по её идентификатору в виде ссылок для проигрывания
+и размера файлов по соответствующим ссылкам.  
+Также у BookContent есть метод to_dict(), который возвращает объект класса в формате json. Пример:
+```
+{
+    'lgk_content': {
+        'uri': 'https://do.av3715.ru/books/232849/BOOK_001.lgk', 
+        'size': 193.0
+    }, 
+    'lkf_content': [
+        {
+            'uri': 'https://do.av3715.ru/books/232849/BOOK_001/001.lkf', 
+            'size': 36178225.0
+        }, 
+        {
+            'uri': 'https://do.av3715.ru/books/232849/BOOK_001/002.lkf', 
+            'size': 25922664.0
+        }
+    ]
+}
+```
