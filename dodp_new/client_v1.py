@@ -1,9 +1,5 @@
-import re
-from typing import Optional, Self
-
-from .general import DODPVersion, BookContent, LGKContent, LKFContent
-from .client import DODPClient
 from .request_body_v1 import LOGON, SETRSA, GETSA, GETCR
+from .client import *
 
 
 class DODPClientV1(DODPClient):
@@ -17,7 +13,7 @@ class DODPClientV1(DODPClient):
         сервисом электронных библиотек
         """
         self._logger.debug('Calling __get_service_attributes')
-        self._headers.update({'SOAPAction': '/getServiceAttributes'})
+        self._update_soap_action(SOAPAction.GET_SERVICE_ATTRIBUTES)
         response = self._send(GETSA)
         return response
 
@@ -26,7 +22,7 @@ class DODPClientV1(DODPClient):
         Отправить на сервер список возможностей устройства
         """
         self._logger.debug('Calling __set_reading_system_attributes')
-        self._headers.update({'SOAPAction': '/setReadingSystemAttributes'})
+        self._update_soap_action(SOAPAction.SET_READING_SYSTEM_ATTRIBUTES)
         response_data = self._send(SETRSA)
         if response_data is None:
             return False
@@ -46,7 +42,7 @@ class DODPClientV1(DODPClient):
         5. Возвращаем True в случае успеха
         """
         self._logger.debug(f'Calling login with {username}:{password}')
-        self._headers.update({'SOAPAction': '/logOn'})
+        self._update_soap_action(SOAPAction.LOGON)
         body = LOGON % (username, password)
         response_data = self._send(body)
         if response_data is None:
@@ -71,25 +67,5 @@ class DODPClientV1(DODPClient):
             return True
 
     def get_book_content(self, book_id: str) -> Optional[BookContent]:
-        self._logger.debug(f'Calling get_book_content with {book_id}')
-        self._headers.update({'SOAPAction': '/getContentResources'})
         body = GETCR % book_id
-        response_data = self._send(body)
-        if response_data is None:
-            return None
-        book_content: BookContent = BookContent()
-        lgk_match = re.search(r'<ns1:resource .*?mimeType="application/lgk".*?/>', response_data, re.DOTALL)
-        if not lgk_match:
-            self._logger.error(f'LGK block not found in book content resources with id: {book_id}')
-        lgk_uri = re.search(r'uri="(.*?)"', lgk_match.group(0)).group(1)
-        lgk_size = float(re.search(r'size="(.*?)"', lgk_match.group(0)).group(1))
-        lgk_content: LGKContent = LGKContent(lgk_uri, lgk_size)
-        book_content.lgk_content = lgk_content
-        lkf_matches = re.finditer(r'<ns1:resource[^>]*?mimeType="audio/x-lkf"[^>]*?/>', response_data, re.DOTALL)
-        for lkf_match in lkf_matches:
-            lkf_str = lkf_match.group(0)
-            lkf_uri = re.search(r'uri="(.*?)"', lkf_str).group(1)
-            lkf_size = float(re.search(r'size="(.*?)"', lkf_str).group(1))
-            lkf_content: LKFContent = LKFContent(lkf_uri, lkf_size)
-            book_content.lkf_content.append(lkf_content)
-        return book_content
+        return self._get_book_content(book_id, body)

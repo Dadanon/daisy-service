@@ -41,3 +41,15 @@ def LOGON_v2(username: str, password: str):
     </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>
 """
+
+
+GETCR_V2 = """<?xml version="1.0" encoding="UTF-8"?>
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
+    <SOAP-ENV:Body xmlns="http://www.daisy.org/ns/daisy-online/">
+        <getContentResources>
+            <contentID>%s</contentID>
+            <accessType>%s</accessType>
+        </getContentResources>
+    </SOAP-ENV:Body>`
+</SOAP-ENV:Envelope>
+"""

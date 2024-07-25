@@ -5,7 +5,8 @@ from typing import Optional, Self, List, Tuple
 import requests
 from logging import Logger
 from http import HTTPStatus
-from .general import DODPVersion, BASE_HEADERS, CLIENT_TIMEOUT, BookList, BookListed, BookContent
+from .general import DODPVersion, BASE_HEADERS, CLIENT_TIMEOUT, BookList, BookListed, BookContent, SOAPAction, \
+    LGKContent, LKFContent, Questions
 from .exceptions import *
 from .messages import method_not_override
 from .request_body import *
@@ -36,6 +37,34 @@ class DODPClient:
         self._supportsServerSideBack = False
         self._supportsSearch = False
 
+    def _update_soap_action(self, action: SOAPAction):
+        self._headers.update({'SOAPAction': action})
+
+    def _get_book_content(self, book_id: str, body: str) -> Optional[BookContent]:
+        self._logger.debug(f'Calling get_book_content with {book_id}, daisy version: {self._version}')
+        self._update_soap_action(SOAPAction.GET_CONTENT_RESOURCES)
+        response_data = self._send(body)
+        if response_data is None:
+            self._logger.error(f'No response while calling _get_book_content with version {self._version}')
+            return None
+        book_content: BookContent = BookContent()
+        lgk_match = re.search(r'<ns1:resource .*?mimeType="application/lgk".*?/>', response_data, re.DOTALL)
+        if not lgk_match:
+            self._logger.error(f'LGK block not found in book content resources with id: {book_id}')
+        lgk_str = lgk_match.group(0)
+        lgk_uri = re.search(r'uri="(.*?)"', lgk_str).group(1)
+        lgk_size = float(re.search(r'size="(.*?)"', lgk_str).group(1))
+        lgk_content: LGKContent = LGKContent(lgk_uri, lgk_size)
+        book_content.lgk_content = lgk_content
+        lkf_matches = re.finditer(r'<ns1:resource[^>]*?mimeType="audio/x-lkf"[^>]*?/>', response_data, re.DOTALL)
+        for lkf_match in lkf_matches:
+            lkf_str = lkf_match.group(0)
+            lkf_uri = re.search(r'uri="(.*?)"', lkf_str).group(1)
+            lkf_size = float(re.search(r'size="(.*?)"', lkf_str).group(1))
+            lkf_content: LKFContent = LKFContent(lkf_uri, lkf_size)
+            book_content.lkf_content.append(lkf_content)
+        return book_content
+
     @property
     def version(self):
         return self._version
@@ -57,7 +86,7 @@ class DODPClient:
         Выйти из аккаунта на сервере электронных библиотек
         """
         self._logger.debug('Calling logoff')
-        self._headers.update({'SOAPAction': '/logOff'})
+        self._update_soap_action(SOAPAction.LOGOFF)
         response_data = self._send(LOGOFF_BODY)
         if response_data is None:
             self._logger.error('Null response on calling logoff')
@@ -91,17 +120,27 @@ class DODPClient:
         except requests.exceptions.SSLError:
             self._logger.error('Automatic SSL error')
 
+    def __get_questions_response(self, response_data: str) -> Optional[Questions]:
+        """Ответ на userResponses с id = search может быть в стиле
+        inputQuestion или multipleChoiceQuestion или микс с
+        inputQuestion и multipleChoiceQuestion.
+        По сути возвращается объект Questions, из которого мы получаем всю информацию
+        или None, если ен найден тег ns1:questions"""
+        questions_body_match = re.search()
+
+
     def get_search_id(self) -> Optional[str]:
         """
         Метод, необходимый для получения нужного id при запросах
         """
         self._logger.debug('Calling _search')
-        self._headers.update({'SOAPAction': '/userResponses'})
+        self._update_soap_action(SOAPAction.USER_RESPONSES)
         response_data = self._send(SEARCH_BODY)
         if response_data is None:
             self._logger.error('Null response on calling search')
             return None
         search_id_match = re.search(r'ns1:inputQuestion id="(.*?)">', response_data, re.DOTALL)
+        print(response_data)
         if search_id_match is None:
             self._logger.error('inputQuestion id is not found in server response')
             return None
@@ -136,7 +175,7 @@ class DODPClient:
         """
         book_list = BookList(total=0)
         self._logger.debug('Calling _get_book_list')
-        self._headers.update({'SOAPAction': '/getContentList'})
+        self._update_soap_action(SOAPAction.GET_CONTENT_LIST)
         books_list_body = GET_BOOKS_LIST_BODY % (content_list_id, first_item, last_item)
         response_data = self._send(books_list_body)
         if response_data is None:
