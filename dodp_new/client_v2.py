@@ -1,4 +1,4 @@
-from .request_body_v2 import LOGON_v2, GETCR_V2
+from .request_body_v2 import LOGON_v2, GETCR_BODY_V2
 from .client import *
 
 
@@ -16,15 +16,18 @@ class DODPClientV2(DODPClient):
         response_data = self._send(body)
         if response_data is None:
             return False
-        can_side_back_match = re.search(r'<supportsServerSideBack>true<', response_data, re.DOTALL)
+        service_attributes_match = re.search(r'<ns1:serviceAttributes>(.*?)</ns1:serviceAttributes>', response_data, re.DOTALL)
+        if service_attributes_match is None:
+            return False
+        service_attributes = service_attributes_match.group(1)
+        can_side_back_match = re.search(r'<supportsServerSideBack>true<', service_attributes, re.DOTALL)
         if can_side_back_match:
             self._supportsServerSideBack = True
-        can_search_match = re.search(r'<supportsSearch>true<', response_data, re.DOTALL)
+        can_search_match = re.search(r'<supportsSearch>true<', service_attributes, re.DOTALL)
         if can_search_match:
             self._supportsSearch = True
-        success_login_match = re.search(r'<ns1:logOnResult>true<', response_data, re.DOTALL)
-        return True if success_login_match else False
+        return True
 
     def get_book_content(self, book_id: str) -> Optional[BookContent]:
-        body = GETCR_V2 % (book_id, 'STREAM')
+        body = GETCR_BODY_V2 % (book_id, 'STREAM')
         return self._get_book_content(book_id, body)

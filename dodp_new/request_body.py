@@ -33,7 +33,7 @@ GET_CONTENT_LIST_ID_BODY = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
-GET_BOOKS_LIST_BODY = """<?xml version="1.0" encoding="UTF-8"?>
+GET_CONTENT_LIST_BODY = """<?xml version="1.0" encoding="UTF-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
     <SOAP-ENV:Body xmlns="http://www.daisy.org/ns/daisy-online/">
         <getContentList>
@@ -41,6 +41,19 @@ GET_BOOKS_LIST_BODY = """<?xml version="1.0" encoding="UTF-8"?>
             <firstItem>%d</firstItem>
             <lastItem>%d</lastItem>
         </getContentList>
+    </SOAP-ENV:Body>
+</SOAP-ENV:Envelope>
+"""
+
+
+GET_QUESTIONS_BODY = """<?xml version="1.0" encoding="UTF-8"?>
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
+    <SOAP-ENV:Body xmlns="http://www.daisy.org/ns/daisy-online/">
+        <getQuestions xmlns="http://www.daisy.org/ns/daisy-online/">
+            <userResponses>
+                <userResponse questionID="%s" value="%s"></userResponse>
+            </userResponses>
+        </getQuestions>
     </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>
 """

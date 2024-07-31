@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 BASE_HEADERS = {
     'Content-Type': 'text/xml; charset=utf-8',
@@ -8,6 +8,25 @@ BASE_HEADERS = {
 
 CLIENT_TIMEOUT = 5
 """Максимальное время ожидания ответа от сервера"""
+
+
+class TagInfo:
+    """Основной класс, хранящий информацию о тегах"""
+    name: str  # Название тега
+    params: Dict[str, str]  # Словарь с параметрами тега
+    content: Optional[str]  # Содержимое тега, может хранить в себе другие нераспаршенные теги
+
+    def __init__(self, name: str, params: Dict[str, str] = {}, content: Optional[str] = None):
+        self.name = name
+        self.params = params
+        self.content = content
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'params': self.params,
+            'content': self.content
+        }
 
 
 class SOAPAction(StrEnum):
@@ -65,7 +84,7 @@ class BookList:
         }
 
 
-class UrlContent:
+class AudioContent:
     uri: str
     size: float
 
@@ -80,11 +99,11 @@ class UrlContent:
         }
 
 
-class LGKContent(UrlContent):
+class LGKContent(AudioContent):
     pass
 
 
-class LKFContent(UrlContent):
+class LKFContent(AudioContent):
     pass
 
 
@@ -103,13 +122,13 @@ class BookContent:
         }
 
 
-class InputType(StrEnum):
-    """
-    Класс, показывающий возможные модели ввода - цифры, цифры и числа, аудио
-    """
-    TEXT_NUMERIC = 'TEXT_NUMERIC'
-    TEXT_ALPHANUMERIC = 'TEXT_ALPHANUMERIC'
-    AUDIO = 'AUDIO'
+# class InputType(StrEnum):
+#     """
+#     Класс, показывающий возможные модели ввода - цифры, цифры и числа, аудио
+#     """
+#     TEXT_NUMERIC = 'TEXT_NUMERIC'
+#     TEXT_ALPHANUMERIC = 'TEXT_ALPHANUMERIC'
+#     AUDIO = 'AUDIO'
 
 
 class Label:
@@ -117,16 +136,16 @@ class Label:
     Функциональное наименование
     """
     text: str
-    audio_path: Optional[str]
+    audio: Optional[AudioContent]
 
-    def __init__(self, text: str, audio_path: Optional[str] = None):
+    def __init__(self, text: str, audio: Optional[AudioContent] = None):
         self.text = text
-        self.audio_path = audio_path
+        self.audio = audio
 
     def to_dict(self):
         return {
             'text': self.text,
-            'audio_path': self.audio_path
+            'audio': self.audio.to_dict() if self.audio else None
         }
 
 
@@ -137,9 +156,9 @@ class InputQuestion:
     """
     id: str
     label: Label
-    input_types: List[InputType]
+    input_types: List[str]
 
-    def __init__(self, id: str, label: Label, input_types: List[InputType]):
+    def __init__(self, id: str, label: Label, input_types: List[str]):
         self.id = id
         self.label = label
         self.input_types = input_types
@@ -148,7 +167,7 @@ class InputQuestion:
         return {
             'id': self.id,
             'label': self.label.to_dict(),
-            'input_types': [input_type.value for input_type in self.input_types]
+            'input_types': self.input_types
         }
 
 
@@ -156,20 +175,18 @@ class Choice:
     """
     Класс, предоставляющий выбор для multipleChoiceQuestion.
     Имеет уникальный id и текст описания выбора (находится в теге label -> text).
-    Также необходимо указывать родительский id для получения ответа
+    Родительский id для получения ответа - это id MultipleChoiceQuestion, в котором
+    находится данный объект Choice
     """
-    parent_id: str
     id: str
     label: Label
 
-    def __init__(self, parent_id: str, id: str, label: Label):
-        self.parent_id = parent_id
+    def __init__(self, id: str, label: Label):
         self.id = id
         self.label = label
 
     def to_dict(self):
         return {
-            'parent_id': self.parent_id,
             'id': self.id,
             'label': self.label.to_dict()
         }
@@ -211,11 +228,11 @@ class Questions:
     input_questions: List[InputQuestion]
     multiple_choice_questions: List[MultipleChoiceQuestion]
 
-    def __init__(self, content_list_ref: Optional[str] = None, label: Optional[Label] = None, input_questions: List[InputQuestion] = [], multiple_choice_questions: List[MultipleChoiceQuestion] = []):
-        self.content_list_ref = content_list_ref
-        self.label = label
-        self.input_questions = input_questions
-        self.multiple_choice_questions = multiple_choice_questions
+    def __init__(self):
+        self.content_list_ref = None
+        self.label = None
+        self.input_questions = []
+        self.multiple_choice_questions = []
 
     def to_dict(self):
         return {
@@ -224,3 +241,33 @@ class Questions:
             'input_questions': [input_question.to_dict() for input_question in self.input_questions],
             'multiple_choice_questions': [multiple_choice_question.to_dict() for multiple_choice_question in self.multiple_choice_questions]
         }
+
+
+# class InnerOperation(StrEnum):
+#     """Внутренний класс для соотнесения всех возможных операций
+#     с соответствующим телом запроса в зависимости от версии"""
+#     LOGOFF = LOGOFF_BODY
+#     SEARCH = SEARCH_BODY
+#     GET_CONTENT_LIST_ID = GET_CONTENT_LIST_ID_BODY
+#     GET_BOOKS_LIST = GET_BOOKS_LIST_BODY
+#
+#     LOGON_V1 = LOGON_BODY_V1
+#     GET_SERVICE_ATTRIBUTES = GETSA_BODY
+#     SET_READING_SYSTEM_ATTRIBUTES = SETRSA_BODY
+#     GET_CONTENT_RESOURCES_V1 = GETCR_BODY_V1
+#
+#     LOGON_V2 = LOGON_BODY_V2
+#     GET_CONTENT_RESOURCES_V2 = GETCR_BODY_V2
+#
+#
+# class Operation(IntEnum):
+#     """Публичные операции, вызываемые пользователем"""
+#     LOGOFF = 0
+#     LOGON = 1
+#
+#
+#
+# BODY_DICT = {
+#
+# }
+# """Общий словарь, соотносит"""

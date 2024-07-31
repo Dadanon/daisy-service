@@ -1,7 +1,7 @@
 from .general import LOGIN_DICT
 
 
-LOGON = """<?xml version="1.0" encoding="UTF-8"?>
+LOGON_BODY_V1 = """<?xml version="1.0" encoding="UTF-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
     <SOAP-ENV:Body xmlns="http://www.daisy.org/ns/daisy-online/">
         <logOn>
@@ -14,7 +14,7 @@ LOGON = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 # INFO: получить список возможностей сервера (get service attributes)
-GETSA = """<?xml version="1.0" encoding="UTF-8"?>
+GETSA_BODY = """<?xml version="1.0" encoding="UTF-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
     <SOAP-ENV:Body xmlns="http://www.daisy.org/ns/daisy-online/">
         <getServiceAttributes></getServiceAttributes>
@@ -24,7 +24,7 @@ GETSA = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 # INFO: список возможностей плеера для отправки на сервер (set reading system attributes)
-SETRSA = f"""<?xml version="1.0" encoding="UTF-8"?>
+SETRSA_BODY = f"""<?xml version="1.0" encoding="UTF-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
     <SOAP-ENV:Body xmlns="http://www.daisy.org/ns/daisy-online/">
         <setReadingSystemAttributes>
@@ -55,7 +55,7 @@ SETRSA = f"""<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
-GETCR = """<?xml version="1.0" encoding="UTF-8"?>
+GETCR_BODY_V1 = """<?xml version="1.0" encoding="UTF-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
     <SOAP-ENV:Body xmlns="http://www.daisy.org/ns/daisy-online/">
         <getContentResources>

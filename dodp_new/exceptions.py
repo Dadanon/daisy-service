@@ -1,4 +1,4 @@
-from .messages import method_not_override
+from .functions import method_not_override
 
 
 class GetClientError(Exception):

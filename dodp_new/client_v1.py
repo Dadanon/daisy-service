@@ -1,4 +1,4 @@
-from .request_body_v1 import LOGON, SETRSA, GETSA, GETCR
+from .request_body_v1 import LOGON_BODY_V1, SETRSA_BODY, GETSA_BODY, GETCR_BODY_V1
 from .client import *
 
 
@@ -14,7 +14,7 @@ class DODPClientV1(DODPClient):
         """
         self._logger.debug('Calling __get_service_attributes')
         self._update_soap_action(SOAPAction.GET_SERVICE_ATTRIBUTES)
-        response = self._send(GETSA)
+        response = self._send(GETSA_BODY)
         return response
 
     def __set_reading_system_attributes(self) -> bool:
@@ -23,7 +23,7 @@ class DODPClientV1(DODPClient):
         """
         self._logger.debug('Calling __set_reading_system_attributes')
         self._update_soap_action(SOAPAction.SET_READING_SYSTEM_ATTRIBUTES)
-        response_data = self._send(SETRSA)
+        response_data = self._send(SETRSA_BODY)
         if response_data is None:
             return False
         result_match = re.search(r'<ns1:setReadingSystemAttributesResult>(.*?)<', response_data)
@@ -43,7 +43,7 @@ class DODPClientV1(DODPClient):
         """
         self._logger.debug(f'Calling login with {username}:{password}')
         self._update_soap_action(SOAPAction.LOGON)
-        body = LOGON % (username, password)
+        body = LOGON_BODY_V1 % (username, password)
         response_data = self._send(body)
         if response_data is None:
             return False
@@ -67,5 +67,5 @@ class DODPClientV1(DODPClient):
             return True
 
     def get_book_content(self, book_id: str) -> Optional[BookContent]:
-        body = GETCR % book_id
+        body = GETCR_BODY_V1 % book_id
         return self._get_book_content(book_id, body)

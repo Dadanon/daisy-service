@@ -1,22 +1,20 @@
 import logging
 import re
-from typing import Optional, Self, List, Tuple
 
 import requests
 from logging import Logger
 from http import HTTPStatus
-from .general import DODPVersion, BASE_HEADERS, CLIENT_TIMEOUT, BookList, BookListed, BookContent, SOAPAction, \
-    LGKContent, LKFContent, Questions
-from .exceptions import *
-from .messages import method_not_override
+
+from .functions import _get_questions
 from .request_body import *
+from .general import *
+from .exceptions import *
 
 
 class DODPClient:
     _headers: dict  # Заголовки, используемые в теле запроса
     _version: DODPVersion  # Версия DODP
     _url: str  # Адрес сервера электронных библиотек
-    _search_id: Optional[str]  # Идентификатор для поиска
     _logger: Logger  # Сборщик данных об ошибках
     # Список важных параметров сервера
     _supportsServerSideBack: bool
@@ -25,7 +23,6 @@ class DODPClient:
     def __init__(self, url: str):
         self._headers = BASE_HEADERS
         self._url = url
-        self._search_id = None
         # Logger settings
         logger_name = f'dodpclient_{self._version}'
         self._logger = Logger(logger_name, logging.DEBUG)
@@ -68,10 +65,6 @@ class DODPClient:
     @property
     def version(self):
         return self._version
-
-    def set_search_id(self, search_id: str):
-        if not self._search_id:
-            self._search_id = search_id
 
     def login(self, username: str, password: str):
         """
@@ -125,13 +118,38 @@ class DODPClient:
         inputQuestion или multipleChoiceQuestion или микс с
         inputQuestion и multipleChoiceQuestion.
         По сути возвращается объект Questions, из которого мы получаем всю информацию
-        или None, если ен найден тег ns1:questions"""
-        questions_body_match = re.search()
+        или None, если не найден тег ns1:questions"""
+        # print(f'Response data in __get_questions_response: {response_data}')
+        # TODO: ПОПРАВИТЬ РЕГУЛЯРОЧКУ НИЖЕ В ПОНЕДЕЛЬНИК!!!
+        print(f'Response data: {response_data}')
+        questions_body_match = re.search(r'(?:\w+:)?questions>(.*?)</(?:\w+:)?questions>', response_data, re.DOTALL)
+        if questions_body_match is None:
+            self._logger.error('Error on getting questions response')
+            return None
+        questions_body = questions_body_match.group(1)
+        # print(f'Questions body in __get_questions_response: {questions_body}')
 
+        questions = _get_questions(questions_body)
+        return questions
 
-    def get_search_id(self) -> Optional[str]:
+    def get_questions(self, question_id: str, value: str) -> Optional[Questions]:
+        self._logger.debug(f'Calling get_question with question_id: {question_id} and value: {value}')
+        self._update_soap_action(SOAPAction.USER_RESPONSES)
+        response_data = self._send(GET_QUESTIONS_BODY % (question_id, value))
+        # print(response_data)
+        if response_data is None:
+            self._logger.error('Null response on calling get_questions')
+            return None
+        questions: Optional[Questions] = self.__get_questions_response(response_data)
+        if questions is None:
+            self._logger.error('Error on getting questions while calling get_questions')
+            return None
+
+        return questions
+
+    def get_search_questions(self) -> Optional[Questions]:
         """
-        Метод, необходимый для получения нужного id при запросах
+        Метод, необходимый для получения объекта Questions при search запросе
         """
         self._logger.debug('Calling _search')
         self._update_soap_action(SOAPAction.USER_RESPONSES)
@@ -139,12 +157,17 @@ class DODPClient:
         if response_data is None:
             self._logger.error('Null response on calling search')
             return None
-        search_id_match = re.search(r'ns1:inputQuestion id="(.*?)">', response_data, re.DOTALL)
-        print(response_data)
-        if search_id_match is None:
-            self._logger.error('inputQuestion id is not found in server response')
+        questions: Optional[Questions] = self.__get_questions_response(response_data)
+        if questions is None:
+            self._logger.error('Error on getting questions while calling _search')
             return None
-        return search_id_match.group(1)
+
+        return questions
+
+    def get_content_list(self, content_list_id: str, text: str, first_item: int = 0, last_item: int = -1) -> BookList:
+        self._logger.debug(f'Public method calling: get_content_list with text: {text}')
+        book_list = self._get_book_list(content_list_id, first_item, last_item)
+        return book_list
 
     def _get_content_list_id(self, text: str) -> Optional[str]:
         """
@@ -159,6 +182,7 @@ class DODPClient:
         if response_data is None:
             self._logger.error('Null response on calling _get_content_list_id')
             return None
+        # print(response_data)
         content_list_ref_match = re.search(r'<contentListRef>(.*?)</contentListRef>', response_data, re.DOTALL)
         if content_list_ref_match is None:
             self._logger.error('contentListRef is not found in server response')
@@ -176,8 +200,9 @@ class DODPClient:
         book_list = BookList(total=0)
         self._logger.debug('Calling _get_book_list')
         self._update_soap_action(SOAPAction.GET_CONTENT_LIST)
-        books_list_body = GET_BOOKS_LIST_BODY % (content_list_id, first_item, last_item)
+        books_list_body = GET_CONTENT_LIST_BODY % (content_list_id, first_item, last_item)
         response_data = self._send(books_list_body)
+        # print(response_data)
         if response_data is None:
             self._logger.error('Null response on calling _get_books_list')
             return book_list
