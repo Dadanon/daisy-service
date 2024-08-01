@@ -1,11 +1,10 @@
 import logging
-import re
 
 import requests
 from logging import Logger
 from http import HTTPStatus
 
-from .functions import _get_questions
+from .functions import *
 from .request_body import *
 from .general import *
 from .exceptions import *
@@ -34,61 +33,12 @@ class DODPClient:
         self._supportsServerSideBack = False
         self._supportsSearch = False
 
-    def _update_soap_action(self, action: SOAPAction):
-        self._headers.update({'SOAPAction': action})
-
-    def _get_book_content(self, book_id: str, body: str) -> Optional[BookContent]:
-        self._logger.debug(f'Calling get_book_content with {book_id}, daisy version: {self._version}')
-        self._update_soap_action(SOAPAction.GET_CONTENT_RESOURCES)
-        response_data = self._send(body)
-        if response_data is None:
-            self._logger.error(f'No response while calling _get_book_content with version {self._version}')
-            return None
-        book_content: BookContent = BookContent()
-        lgk_match = re.search(r'<ns1:resource .*?mimeType="application/lgk".*?/>', response_data, re.DOTALL)
-        if not lgk_match:
-            self._logger.error(f'LGK block not found in book content resources with id: {book_id}')
-        lgk_str = lgk_match.group(0)
-        lgk_uri = re.search(r'uri="(.*?)"', lgk_str).group(1)
-        lgk_size = float(re.search(r'size="(.*?)"', lgk_str).group(1))
-        lgk_content: LGKContent = LGKContent(lgk_uri, lgk_size)
-        book_content.lgk_content = lgk_content
-        lkf_matches = re.finditer(r'<ns1:resource[^>]*?mimeType="audio/x-lkf"[^>]*?/>', response_data, re.DOTALL)
-        for lkf_match in lkf_matches:
-            lkf_str = lkf_match.group(0)
-            lkf_uri = re.search(r'uri="(.*?)"', lkf_str).group(1)
-            lkf_size = float(re.search(r'size="(.*?)"', lkf_str).group(1))
-            lkf_content: LKFContent = LKFContent(lkf_uri, lkf_size)
-            book_content.lkf_content.append(lkf_content)
-        return book_content
-
     @property
     def version(self):
         return self._version
 
-    def login(self, username: str, password: str):
-        """
-        Подключиться к серверу электронных библиотек со своим аккаунтом.
-        Реализация метода отличается в разных версиях протокола
-        """
-        self._logger.error(method_not_override('login'))
-        raise NotOverrideError('login')
-
-    def logoff(self) -> bool:
-        """
-        Выйти из аккаунта на сервере электронных библиотек
-        """
-        self._logger.debug('Calling logoff')
-        self._update_soap_action(SOAPAction.LOGOFF)
-        response_data = self._send(LOGOFF_BODY)
-        if response_data is None:
-            self._logger.error('Null response on calling logoff')
-            return False
-        result_match = re.search(r'<ns1:logOffResult>true<', response_data, re.DOTALL)
-        if result_match is None:
-            self._logger.error('logOffResult is not found in server response or is False')
-            return False
-        return True
+    def _update_soap_action(self, action: SOAPAction):
+        self._headers.update({'SOAPAction': action})
 
     def _send(self, body: str) -> Optional[str]:
         """
@@ -113,117 +63,103 @@ class DODPClient:
         except requests.exceptions.SSLError:
             self._logger.error('Automatic SSL error')
 
-    def __get_questions_response(self, response_data: str) -> Optional[Questions]:
-        """Ответ на userResponses с id = search может быть в стиле
-        inputQuestion или multipleChoiceQuestion или микс с
-        inputQuestion и multipleChoiceQuestion.
-        По сути возвращается объект Questions, из которого мы получаем всю информацию
-        или None, если не найден тег ns1:questions"""
-        # print(f'Response data in __get_questions_response: {response_data}')
-        # TODO: ПОПРАВИТЬ РЕГУЛЯРОЧКУ НИЖЕ В ПОНЕДЕЛЬНИК!!!
-        print(f'Response data: {response_data}')
-        questions_body_match = re.search(r'(?:\w+:)?questions>(.*?)</(?:\w+:)?questions>', response_data, re.DOTALL)
-        if questions_body_match is None:
-            self._logger.error('Error on getting questions response')
+    def _get_response_data(self, body: str, method_name: str, soap_action: SOAPAction, **kwargs) -> Optional[str]:
+        log_message = f'Calling {method_name}'
+        if kwargs:
+            log_message += ' with '
+            args_messages = [f'{k}: {v}' for k, v in kwargs.items()]
+            log_message += ', '.join(args_messages)
+        self._logger.debug(log_message)
+        self._update_soap_action(soap_action)
+        response_data = self._send(body)
+        if response_data is None:
+            self._logger.error(f'Null response on calling {method_name} with version {self._version}')
             return None
-        questions_body = questions_body_match.group(1)
-        # print(f'Questions body in __get_questions_response: {questions_body}')
+        # print(f'Response data in _get_response_data:\n{response_data}')
+        return response_data
 
-        questions = _get_questions(questions_body)
-        return questions
+    def _get_book_content(self, book_id: str, body: str) -> Optional[BookContent]:
+        response_data = self._get_response_data(body, '_get_book_content', SOAPAction.GET_CONTENT_RESOURCES)
+        result = get_book_content_object(book_id, response_data)
+        match result:
+            case Ok(book_content):
+                return book_content
+            case Err(error_message):
+                self._logger.error(error_message)
+                return None
+
+    def login(self, username: str, password: str):
+        """
+        Подключиться к серверу электронных библиотек со своим аккаунтом.
+        Реализация метода отличается в разных версиях протокола
+        """
+        self._logger.error(method_not_override('login'))
+        raise NotOverrideError('login')
+
+    def logoff(self) -> bool:
+        """Выйти из аккаунта на сервере электронных библиотек"""
+        response_data = self._get_response_data(LOGOFF_BODY, 'logoff', SOAPAction.LOGOFF)
+        if response_data is None:
+            return False
+        log_off_result_tag = get_tag_info_by_params('logOffResult', response_data)
+        if not log_off_result_tag:
+            self._logger.error('logOffResult is not found in server response')
+            return False
+        if log_off_result_tag.content != 'true':
+            self._logger.error('logOffResult is False')
+            return False
+        return True
 
     def get_questions(self, question_id: str, value: str) -> Optional[Questions]:
-        self._logger.debug(f'Calling get_question with question_id: {question_id} and value: {value}')
-        self._update_soap_action(SOAPAction.USER_RESPONSES)
-        response_data = self._send(GET_QUESTIONS_BODY % (question_id, value))
-        # print(response_data)
+        request_body = GET_QUESTIONS_BODY % (question_id, value)
+        response_data = self._get_response_data(request_body, 'get_questions', SOAPAction.USER_RESPONSES, question_id=question_id, value=value)
+        # print(f'Response data:\n{response_data}')
         if response_data is None:
-            self._logger.error('Null response on calling get_questions')
             return None
-        questions: Optional[Questions] = self.__get_questions_response(response_data)
-        if questions is None:
-            self._logger.error('Error on getting questions while calling get_questions')
+        questions: Questions = get_questions_object(response_data)
+        if not questions:
+            self._logger.error('No questions tag found in response while calling get_questions')
             return None
 
         return questions
 
     def get_search_questions(self) -> Optional[Questions]:
-        """
-        Метод, необходимый для получения объекта Questions при search запросе
-        """
-        self._logger.debug('Calling _search')
-        self._update_soap_action(SOAPAction.USER_RESPONSES)
-        response_data = self._send(SEARCH_BODY)
+        """Метод, необходимый для получения объекта Questions при search запросе"""
+        response_data = self._get_response_data(SEARCH_BODY, 'get_search_questions', SOAPAction.USER_RESPONSES)
         if response_data is None:
-            self._logger.error('Null response on calling search')
             return None
-        questions: Optional[Questions] = self.__get_questions_response(response_data)
+        questions: Optional[Questions] = get_questions_object(response_data)
         if questions is None:
-            self._logger.error('Error on getting questions while calling _search')
+            self._logger.error('No questions tag found in response while calling get_search_questions')
             return None
-
         return questions
 
-    def get_content_list(self, content_list_id: str, text: str, first_item: int = 0, last_item: int = -1) -> BookList:
-        self._logger.debug(f'Public method calling: get_content_list with text: {text}')
-        book_list = self._get_book_list(content_list_id, first_item, last_item)
-        return book_list
-
-    def _get_content_list_id(self, text: str) -> Optional[str]:
-        """
-        Получить идентификатор контент листа
-        :param search_id: идентификатор поиска, уникальный для каждой электронной библиотеки
-        :param text: текст, являющийся частью названия книги, автора
-        :return: content list id as string
-        """
-        self._logger.debug('Calling _get_content_list_id')
-        content_list_id_body = GET_CONTENT_LIST_ID_BODY % (self._search_id, text)
-        response_data = self._send(content_list_id_body)
+    def get_content_list(self, content_list_id: str, first_item: int = 0, last_item: int = -1) -> Optional[BookList]:
+        request_body = GET_CONTENT_LIST_BODY % (content_list_id, first_item, last_item)
+        response_data = self._get_response_data(request_body, 'get_content_list', SOAPAction.GET_CONTENT_LIST, content_list_id=content_list_id, first_item=first_item, last_item=last_item)
         if response_data is None:
-            self._logger.error('Null response on calling _get_content_list_id')
             return None
-        # print(response_data)
-        content_list_ref_match = re.search(r'<contentListRef>(.*?)</contentListRef>', response_data, re.DOTALL)
-        if content_list_ref_match is None:
-            self._logger.error('contentListRef is not found in server response')
+        content_list_tag: TagInfo = get_tag_info_by_params('contentList', response_data)
+        if not content_list_tag:
+            self._logger.error('No content list tag found in response')
             return None
-        return content_list_ref_match.group(1)
-
-    def _get_book_list(self, content_list_id: str, first_item: int = 0, last_item: int = -1) -> BookList:
-        """
-        Получить список книг (срез списка от first_item до last_item)
-        :param content_list_id: идентификатор контент листа
-        :param first_item: индекс первого элемента в подсписке
-        :param last_item: индекс последнего элемента в подсписке
-        :return: список книг с общим их числом
-        """
-        book_list = BookList(total=0)
-        self._logger.debug('Calling _get_book_list')
-        self._update_soap_action(SOAPAction.GET_CONTENT_LIST)
-        books_list_body = GET_CONTENT_LIST_BODY % (content_list_id, first_item, last_item)
-        response_data = self._send(books_list_body)
-        # print(response_data)
-        if response_data is None:
-            self._logger.error('Null response on calling _get_books_list')
-            return book_list
-        total_match = re.search(r'<ns1:contentList totalItems="(.*?)"', response_data, re.DOTALL)
-        if total_match is None:
-            self._logger.error('No total count found in server response')
-        else:
-            book_list.total = int(total_match.group(1))
-        content_items_iter = re.finditer(r'<ns1:contentItem id="(.*?)">.*?<ns1:text>(.*?)<', response_data, re.DOTALL)
-        for content_item in content_items_iter:
-            book_listed = BookListed(id=content_item.group(1), name=content_item.group(2))
-            book_list.books.append(book_listed)
-        return book_list
-
-    # INFO: public methods block --------------------------------------------------------------------------------------
-    def get_book_list(self, text: str, first_item: int = 0, last_item: int = -1) -> BookList:
-        self._logger.debug(f'Public method calling: get_book_list with text: {text}')
-        content_list_id = self._get_content_list_id(text)
-        if content_list_id is None:
-            return []
-        book_list = self._get_book_list(content_list_id, first_item, last_item)
+        cl_total: int = int(content_list_tag.params.get('totalItems'))
+        cl_label_tag: TagInfo = get_root_tag_info('label', content_list_tag.content)
+        if not cl_label_tag:
+            self._logger.error('No label tag found in content list')
+            return None
+        cl_label: Label = get_label(cl_label_tag)
+        if not cl_label:
+            self._logger.error('Not all label fields present in content list')
+            return None
+        book_list: BookList = BookList(total=cl_total, label=cl_label)
+        book_tags: List[TagInfo] = get_tag_info_list_by_params('contentItem', content_list_tag.content)
+        for book_tag in book_tags:
+            book_id: str = book_tag.params.get('id')
+            book_label: Label = get_label(book_tag.content)
+            if book_label:
+                book_listed: BookListed = BookListed(id=book_id, label=book_label)
+                book_list.books.append(book_listed)
         return book_list
 
     def get_book_content(self, book_id: str):

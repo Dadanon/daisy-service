@@ -1,6 +1,8 @@
 from enum import StrEnum
 from typing import List, Optional, Dict
 
+from dodp_new.common_functions import get_normalized
+
 BASE_HEADERS = {
     'Content-Type': 'text/xml; charset=utf-8',
     'Accept': 'text/xml'
@@ -14,12 +16,12 @@ class TagInfo:
     """Основной класс, хранящий информацию о тегах"""
     name: str  # Название тега
     params: Dict[str, str]  # Словарь с параметрами тега
-    content: Optional[str]  # Содержимое тега, может хранить в себе другие нераспаршенные теги
+    __content: Optional[str]  # Содержимое тега, может хранить в себе другие нераспаршенные теги
 
     def __init__(self, name: str, params: Dict[str, str] = {}, content: Optional[str] = None):
         self.name = name
         self.params = params
-        self.content = content
+        self.__content = get_normalized(content)
 
     def to_dict(self):
         return {
@@ -27,6 +29,14 @@ class TagInfo:
             'params': self.params,
             'content': self.content
         }
+
+    @property
+    def content(self):
+        return self.__content
+
+    @content.setter
+    def content(self, content):
+        self.__content = get_normalized(content)
 
 
 class SOAPAction(StrEnum):
@@ -52,36 +62,6 @@ LOGIN_DICT = {
     'serial': '040923',
     'version': '2023.09.04'
 }
-
-
-class BookListed:
-    id: str
-    name: str
-
-    def __init__(self, id: str, name: str):
-        self.id = id
-        self.name = name
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name
-        }
-
-
-class BookList:
-    total: int
-    books: List[BookListed]
-
-    def __init__(self, total: int):
-        self.total = total
-        self.books = []
-
-    def to_dict(self):
-        return {
-            'total': self.total,
-            'books': [book.to_dict() for book in self.books]
-        }
 
 
 class AudioContent:
@@ -120,15 +100,6 @@ class BookContent:
             'lgk_content': self.lgk_content.to_dict() if self.lgk_content else None,
             'lkf_content': [content.to_dict() for content in self.lkf_content]
         }
-
-
-# class InputType(StrEnum):
-#     """
-#     Класс, показывающий возможные модели ввода - цифры, цифры и числа, аудио
-#     """
-#     TEXT_NUMERIC = 'TEXT_NUMERIC'
-#     TEXT_ALPHANUMERIC = 'TEXT_ALPHANUMERIC'
-#     AUDIO = 'AUDIO'
 
 
 class Label:
@@ -240,6 +211,39 @@ class Questions:
             'label': self.label.to_dict() if self.label else None,
             'input_questions': [input_question.to_dict() for input_question in self.input_questions],
             'multiple_choice_questions': [multiple_choice_question.to_dict() for multiple_choice_question in self.multiple_choice_questions]
+        }
+
+
+class BookListed:
+    id: str
+    label: Label
+
+    def __init__(self, id: str, label: Label):
+        self.id = id
+        self.label = label
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'label': self.label.to_dict()
+        }
+
+
+class BookList:
+    total: int
+    label: Label
+    books: List[BookListed]
+
+    def __init__(self, total: int, label: Label):
+        self.total = total
+        self.label = label
+        self.books = []
+
+    def to_dict(self):
+        return {
+            'total': self.total,
+            'label': self.label.to_dict(),
+            'books': [book.to_dict() for book in self.books]
         }
 
 

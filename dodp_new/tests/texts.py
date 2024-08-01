@@ -43,7 +43,6 @@ text_1 = """
 </Tests>
 """
 
-
 text_2 = """
 <?xml version="1.0" encoding="utf-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="http://www.daisy.org/ns/daisy-online/">
@@ -63,6 +62,43 @@ text_2 = """
 </ns1:getQuestionsResponse>
 </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>
+"""
+
+text_3 = """
+<ns1:choices>
+	<ns1:choice id="que_21">
+		<ns1:label xml:lang="en">
+			<ns1:text>Search by author.</ns1:text>
+			<ns1:audio uri="http://localhost:8082/questions/11/question_11.ogg" size="12455"/>
+		</ns1:label>
+	</ns1:choice>
+	<ns1:choice id="que_22">
+		<ns1:label xml:lang="en">
+			<ns1:text>Search by title.</ns1:text>
+			<ns1:audio uri="http://localhost:8082/questions/13/question_13.ogg" size="10729"/>
+		</ns1:label>
+	</ns1:choice>
+</ns1:choices>
+
+<ns1:label xml:lang="en">
+	<ns1:text>What do you want to search by?</ns1:text>
+	<ns1:audio uri="http://localhost:8082/questions/9/question_9.ogg" size="16948"/>
+</ns1:label>
+
+<ns1:choices>
+	<ns1:choice id="que_21">
+		<ns1:label xml:lang="en">
+			<ns1:text>Search by author.</ns1:text>
+			<ns1:audio uri="http://localhost:8082/questions/11/question_11.ogg" size="12455"/>
+		</ns1:label>
+	</ns1:choice>
+	<ns1:choice id="que_22">
+		<ns1:label xml:lang="en">
+			<ns1:text>Search by title.</ns1:text>
+			<ns1:audio uri="http://localhost:8082/questions/13/question_13.ogg" size="10729"/>
+		</ns1:label>
+	</ns1:choice>
+</ns1:choices>
 """
 
 # End block

@@ -3,6 +3,7 @@ from typing import Optional, Type
 from dodp_new.client import DODPClient
 from dodp_new.client_v1 import DODPClientV1
 from dodp_new.client_v2 import DODPClientV2
+from dodp_new.exceptions import GetClientError
 
 
 def __get_client(client_type: Type[DODPClient], url: str, username: str, password: str) -> Optional[DODPClient]:
@@ -16,14 +17,14 @@ def __get_client(client_type: Type[DODPClient], url: str, username: str, passwor
     return None
 
 
-def client_login(url: str, username: str, password: str) -> Optional[DODPClient]:
+def client_login(url: str, username: str, password: str) -> DODPClient:
     client_v1 = __get_client(DODPClientV1, url, username, password)
     if client_v1:
         return client_v1
     client_v2 = __get_client(DODPClientV2, url, username, password)
     if client_v2:
         return client_v2
-    return None
+    raise GetClientError()
 
 
 __all__ = [

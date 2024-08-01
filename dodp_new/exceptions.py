@@ -1,4 +1,4 @@
-from .functions import method_not_override
+from .common_functions import method_not_override
 
 
 class GetClientError(Exception):

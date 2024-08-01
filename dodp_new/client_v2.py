@@ -1,4 +1,4 @@
-from .request_body_v2 import LOGON_v2, GETCR_BODY_V2
+from .request_body_v2 import GETCR_BODY_V2, LOGON_BODY_V2
 from .client import *
 
 
@@ -10,22 +10,21 @@ class DODPClientV2(DODPClient):
     # INFO: public methods
 
     def login(self, username: str, password: str) -> bool:
-        self._logger.debug(f'Calling login with {username}:{password}')
-        self._update_soap_action(SOAPAction.LOGON)
-        body = LOGON_v2(username, password)
-        response_data = self._send(body)
+        request_body = LOGON_BODY_V2 % (username, password)
+        response_data = self._get_response_data(request_body, 'login', SOAPAction.LOGON, username=username, password=password)
         if response_data is None:
             return False
-        service_attributes_match = re.search(r'<ns1:serviceAttributes>(.*?)</ns1:serviceAttributes>', response_data, re.DOTALL)
-        if service_attributes_match is None:
+        service_attributes_tag: TagInfo = get_tag_info_by_params('serviceAttributes', response_data)
+        if not service_attributes_tag:
+            self._logger.error('No service attributes tag found in response data')
             return False
-        service_attributes = service_attributes_match.group(1)
-        can_side_back_match = re.search(r'<supportsServerSideBack>true<', service_attributes, re.DOTALL)
-        if can_side_back_match:
-            self._supportsServerSideBack = True
-        can_search_match = re.search(r'<supportsSearch>true<', service_attributes, re.DOTALL)
-        if can_search_match:
-            self._supportsSearch = True
+        supports_server_side_back_tag: TagInfo = get_tag_info_by_params('supportsServerSideBack', service_attributes_tag.content)
+        if supports_server_side_back_tag:
+            self._supportsServerSideBack = supports_server_side_back_tag.content == 'true'
+        supports_search_tag: TagInfo = get_tag_info_by_params('supportsSearch', service_attributes_tag.content)
+        if supports_search_tag:
+            self._supportsSearch = supports_search_tag.content == 'true'
+        self._logger.debug(f'Login with version: {self._version} succeeded')
         return True
 
     def get_book_content(self, book_id: str) -> Optional[BookContent]:
