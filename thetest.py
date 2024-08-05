@@ -1,9 +1,16 @@
+import os
 import time
+from dotenv import load_dotenv
 
 from dodp_new import client_login, DODPClient
 
+load_dotenv('.env')
+
+AV3715_LOGIN = os.getenv('AV3715_LOGIN')
+AV3715_PASSWORD = os.getenv('AV3715_PASSWORD')
+
 start_time = time.time()
-client: DODPClient = client_login('https://do.av3715.ru', 'motorina@ia-group.ru', '23610')
+client: DODPClient = client_login('https://do.av3715.ru', AV3715_LOGIN, AV3715_PASSWORD)
 # client = client_login('http://127.0.0.1:8082/service.php', 'kolibre', 'kolibre')
 print(f'Client version: {client.version}')
 print('\n')
